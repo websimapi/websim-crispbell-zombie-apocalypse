@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Apocalypse: Paper World</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Comic Sans MS', cursive;
+            background: #000;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #titleScreen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .comic-title {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 4px 4px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000;
+            transform: rotate(-5deg);
+            margin-bottom: 2rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: rotate(-5deg) scale(1); }
+            50% { transform: rotate(-5deg) scale(1.1); }
+        }
+        
+        .comic-button {
+            background: #ff4757;
+            border: 4px solid #000;
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            transform: skew(-5deg);
+            transition: all 0.3s;
+            text-shadow: 2px 2px 0px #000;
+            box-shadow: 4px 4px 0px #000;
+        }
+        
+        .comic-button:hover {
+            background: #ff3742;
+            transform: skew(-5deg) scale(1.1);
+            box-shadow: 6px 6px 0px #000;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            display: none;
+        }
+        
+        .ui-panel {
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #fff;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .icon-button {
+            width: 60px;
+            height: 60px;
+            background: #2f3542;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            margin: 5px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s;
+        }
+        
+        .icon-button:hover {
+            transform: scale(1.2);
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            display: none;
+        }
+        
+        .control-info {
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        #loadingScreen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            color: #fff;
+        }
+        
+        .loading-text {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .progress-bar {
+            width: 300px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="titleScreen">
+            <div class="comic-title">ZOMBIE APOCALYPSE</div>
+            <div class="comic-title" style="font-size: 2rem; margin-top: -1rem;">PAPER WORLD</div>
+            <button class="comic-button" onclick="startGame()">START GAME</button>
+            <button class="comic-button" onclick="loadGame()">LOAD GAME</button>
+            <button class="comic-button" onclick="downloadBackup()">DOWNLOAD BACKUP</button>
+            <button class="comic-button" onclick="uploadBackup()">UPLOAD BACKUP</button>
+        </div>
+        
+        <div id="loadingScreen" style="display: none;">
+            <div class="loading-text">Generating Comic Assets...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div id="loadingStatus">Preparing game world...</div>
+        </div>
+        
+        <div id="ui">
+            <div class="ui-panel">
+                <div>Health: <span id="health">100</span></div>
+                <div>Ammo: <span id="ammo">30</span></div>
+                <div>Score: <span id="score">0</span></div>
+            </div>
+            <div>
+                <div class="icon-button" onclick="showInventory()" id="inventoryIcon"></div>
+                <div class="icon-button" onclick="showMap()" id="mapIcon"></div>
+                <div class="icon-button" onclick="saveGame()" id="saveIcon"></div>
+            </div>
+        </div>
+        
+        <div id="controls">
+            <div class="control-info">
+                WASD - Move | Mouse - Look | Click - Shoot | E - Interact
+            </div>
+        </div>
+    </div>
+    
+    <input type="file" id="fileInput" style="display: none;" accept=".zip" onchange="handleFileUpload(event)">
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/",
+            "jszip": "https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"
+        }
+    }
+    </script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        
+        class ZombieApocalypseGame {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.player = {
+                    health: 100,
+                    ammo: 30,
+                    score: 0,
+                    position: new THREE.Vector3(0, 1, 0)
+                };
+                this.zombies = [];
+                this.assets = new Map();
+                this.gameState = 'menu';
+                this.keys = {};
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                
+                this.initEventListeners();
+                this.loadAssets();
+            }
+            
+            async loadAssets() {
+                const savedAssets = localStorage.getItem('zombieGameAssets');
+                if (savedAssets) {
+                    try {
+                        const parsedAssets = JSON.parse(savedAssets);
+                        for (const [key, url] of Object.entries(parsedAssets)) {
+                            this.assets.set(key, url);
+                        }
+                        console.log('Loaded assets from localStorage');
+                        return;
+                    } catch (e) {
+                        console.log('Failed to load saved assets, generating new ones');
+                    }
+                }
+                
+                await this.generateAssets();
+            }
+            
+            async generateAssets() {
+                const assetList = [
+                    { key: 'zombie1', prompt: 'cartoon zombie character, front view, comic book style, simple design, flat colors', transparent: true },
+                    { key: 'zombie2', prompt: 'cartoon zombie character, side view, comic book style, tattered clothes, flat colors', transparent: true },
+                    { key: 'player', prompt: 'cartoon survivor character, comic book style, holding rifle, brave expression, flat colors', transparent: true },
+                    { key: 'building1', prompt: 'cartoon building facade, comic book style, post-apocalyptic, broken windows, flat colors', transparent: true },
+                    { key: 'building2', prompt: 'cartoon house, comic book style, damaged roof, boarded windows, flat colors', transparent: true },
+                    { key: 'tree', prompt: 'cartoon dead tree, comic book style, bare branches, spooky, flat colors', transparent: true },
+                    { key: 'ground', prompt: 'cracked asphalt texture, comic book style, top-down view, flat colors', transparent: false },
+                    { key: 'inventoryIcon', prompt: 'backpack icon, comic book style, simple design, bold lines', transparent: true },
+                    { key: 'mapIcon', prompt: 'map icon, comic book style, folded paper, simple design', transparent: true },
+                    { key: 'saveIcon', prompt: 'floppy disk save icon, comic book style, retro, bold lines', transparent: true }
+                ];
+                
+                this.updateLoadingProgress(0, 'Starting asset generation...');
+                
+                for (let i = 0; i < assetList.length; i++) {
+                    const asset = assetList[i];
+                    this.updateLoadingProgress((i / assetList.length) * 100, `Generating ${asset.key}...`);
+                    
+                    try {
+                        const result = await websim.imageGen({
+                            prompt: asset.prompt,
+                            transparent: asset.transparent,
+                            aspect_ratio: "1:1"
+                        });
+                        
+                        this.assets.set(asset.key, result.url);
+                        await this.delay(500); // Small delay to prevent rate limiting
+                    } catch (error) {
+                        console.error(`Failed to generate ${asset.key}:`, error);
+                        // Use a placeholder or default color
+                        this.assets.set(asset.key, 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+                    }
+                }
+                
+                this.saveAssetsToStorage();
+                this.updateLoadingProgress(100, 'Assets ready!');
+            }
+            
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+            
+            updateLoadingProgress(percent, status) {
+                const progressFill = document.getElementById('progressFill');
+                const loadingStatus = document.getElementById('loadingStatus');
+                
+                if (progressFill) progressFill.style.width = `${percent}%`;
+                if (loadingStatus) loadingStatus.textContent = status;
+            }
+            
+            saveAssetsToStorage() {
+                const assetObj = {};
+                for (const [key, value] of this.assets) {
+                    assetObj[key] = value;
+                }
+                localStorage.setItem('zombieGameAssets', JSON.stringify(assetObj));
+            }
+            
+            initEventListeners() {
+                document.addEventListener('keydown', (e) => this.keys[e.code] = true);
+                document.addEventListener('keyup', (e) => this.keys[e.code] = false);
+                document.addEventListener('click', (e) => this.handleClick(e));
+                document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+            }
+            
+            async initGame() {
+                document.getElementById('titleScreen').style.display = 'none';
+                document.getElementById('loadingScreen').style.display = 'flex';
+                
+                // Wait for assets to be ready
+                if (this.assets.size === 0) {
+                    await this.generateAssets();
+                }
+                
+                this.setupThreeJS();
+                this.createWorld();
+                this.setupUI();
+                
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('ui').style.display = 'block';
+                document.getElementById('controls').style.display = 'block';
+                
+                this.gameState = 'playing';
+                this.animate();
+            }
+            
+            setupThreeJS() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x87CEEB);
+                this.scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
+                
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.copy(this.player.position);
+                
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                
+                document.getElementById('gameContainer').appendChild(this.renderer.domElement);
+                
+                this.controls = new PointerLockControls(this.camera, this.renderer.domElement);
+                this.scene.add(this.controls.getObject());
+                
+                // Lighting
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                this.scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(50, 50, 50);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048;
+                directionalLight.shadow.mapSize.height = 2048;
+                this.scene.add(directionalLight);
+            }
+            
+            createWorld() {
+                // Ground
+                const groundGeometry = new THREE.PlaneGeometry(200, 200);
+                const groundTexture = new THREE.TextureLoader().load(this.assets.get('ground') || '#666666');
+                groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+                groundTexture.repeat.set(10, 10);
+                const groundMaterial = new THREE.MeshLambertMaterial({ map: groundTexture });
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.receiveShadow = true;
+                this.scene.add(ground);
+                
+                // Buildings
+                this.createBuildings();
+                
+                // Trees
+                this.createTrees();
+                
+                // Zombies
+                this.createZombies();
+            }
+            
+            createBuildings() {
+                const positions = [
+                    { x: 20, z: 20 },
+                    { x: -30, z: 15 },
+                    { x: 40, z: -25 },
+                    { x: -20, z: -30 },
+                    { x: 60, z: 10 }
+                ];
+                
+                positions.forEach((pos, i) => {
+                    const building = this.createBillboard(
+                        this.assets.get(i % 2 === 0 ? 'building1' : 'building2'),
+                        8, 12
+                    );
+                    building.position.set(pos.x, 6, pos.z);
+                    building.castShadow = true;
+                    this.scene.add(building);
+                });
+            }
+            
+            createTrees() {
+                for (let i = 0; i < 15; i++) {
+                    const tree = this.createBillboard(this.assets.get('tree'), 3, 6);
+                    tree.position.set(
+                        (Math.random() - 0.5) * 150,
+                        3,
+                        (Math.random() - 0.5) * 150
+                    );
+                    tree.castShadow = true;
+                    this.scene.add(tree);
+                }
+            }
+            
+            createZombies() {
+                for (let i = 0; i < 10; i++) {
+                    const zombie = this.createZombie();
+                    zombie.position.set(
+                        (Math.random() - 0.5) * 100,
+                        1,
+                        (Math.random() - 0.5) * 100
+                    );
+                    this.scene.add(zombie);
+                    this.zombies.push(zombie);
+                }
+            }
+            
+            createZombie() {
+                const zombie = this.createBillboard(
+                    this.assets.get(Math.random() > 0.5 ? 'zombie1' : 'zombie2'),
+                    2, 3
+                );
+                zombie.userData = {
+                    type: 'zombie',
+                    health: 100,
+                    speed: 0.5 + Math.random() * 0.5,
+                    lastMove: 0
+                };
+                zombie.castShadow = true;
+                return zombie;
+            }
+            
+            createBillboard(textureUrl, width, height) {
+                const geometry = new THREE.PlaneGeometry(width, height);
+                const texture = new THREE.TextureLoader().load(textureUrl);
+                texture.magFilter = THREE.NearestFilter;
+                texture.minFilter = THREE.NearestFilter;
+                
+                const material = new THREE.MeshLambertMaterial({
+                    map: texture,
+                    transparent: true,
+                    alphaTest: 0.1
+                });
+                
+                const billboard = new THREE.Mesh(geometry, material);
+                return billboard;
+            }
+            
+            setupUI() {
+                // Set up icon images
+                if (this.assets.get('inventoryIcon')) {
+                    document.getElementById('inventoryIcon').style.backgroundImage = `url(${this.assets.get('inventoryIcon')})`;
+                    document.getElementById('inventoryIcon').style.backgroundSize = 'cover';
+                }
+                if (this.assets.get('mapIcon')) {
+                    document.getElementById('mapIcon').style.backgroundImage = `url(${this.assets.get('mapIcon')})`;
+                    document.getElementById('mapIcon').style.backgroundSize = 'cover';
+                }
+                if (this.assets.get('saveIcon')) {
+                    document.getElementById('saveIcon').style.backgroundImage = `url(${this.assets.get('saveIcon')})`;
+                    document.getElementById('saveIcon').style.backgroundSize = 'cover';
+                }
+                
+                this.updateUI();
+            }
+            
+            updateUI() {
+                document.getElementById('health').textContent = this.player.health;
+                document.getElementById('ammo').textContent = this.player.ammo;
+                document.getElementById('score').textContent = this.player.score;
+            }
+            
+            handleClick(event) {
+                if (this.gameState !== 'playing') return;
+                
+                if (this.controls.isLocked) {
+                    this.shoot();
+                } else {
+                    this.controls.lock();
+                }
+            }
+            
+            handleMouseMove(event) {
+                if (this.gameState !== 'playing') return;
+                
+                this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            }
+            
+            shoot() {
+                if (this.player.ammo <= 0) return;
+                
+                this.player.ammo--;
+                this.updateUI();
+                
+                this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+                const intersects = this.raycaster.intersectObjects(this.zombies);
+                
+                if (intersects.length > 0) {
+                    const zombie = intersects[0].object;
+                    zombie.userData.health -= 50;
+                    
+                    if (zombie.userData.health <= 0) {
+                        this.scene.remove(zombie);
+                        this.zombies = this.zombies.filter(z => z !== zombie);
+                        this.player.score += 100;
+                        this.updateUI();
+                    }
+                }
+            }
+            
+            updatePlayer() {
+                const moveSpeed = 0.1;
+                const direction = new THREE.Vector3();
+                
+                if (this.keys['KeyW']) direction.z -= 1;
+                if (this.keys['KeyS']) direction.z += 1;
+                if (this.keys['KeyA']) direction.x -= 1;
+                if (this.keys['KeyD']) direction.x += 1;
+                
+                if (direction.length() > 0) {
+                    direction.normalize();
+                    direction.multiplyScalar(moveSpeed);
+                    
+                    const cameraDirection = new THREE.Vector3();
+                    this.camera.getWorldDirection(cameraDirection);
+                    cameraDirection.y = 0;
+                    cameraDirection.normalize();
+                    
+                    const right = new THREE.Vector3();
+                    right.crossVectors(cameraDirection, new THREE.Vector3(0, 1, 0));
+                    
+                    const movement = new THREE.Vector3();
+                    movement.addScaledVector(cameraDirection, -direction.z);
+                    movement.addScaledVector(right, direction.x);
+                    
+                    this.controls.getObject().position.add(movement);
+                    this.player.position.copy(this.controls.getObject().position);
+                }
+            }
+            
+            updateZombies() {
+                const now = Date.now();
+                
+                this.zombies.forEach(zombie => {
+                    if (now - zombie.userData.lastMove > 100) {
+                        const playerPos = this.controls.getObject().position;
+                        const zombiePos = zombie.position;
+                        
+                        const direction = new THREE.Vector3();
+                        direction.subVectors(playerPos, zombiePos);
+                        direction.y = 0;
+                        direction.normalize();
+                        direction.multiplyScalar(zombie.userData.speed * 0.01);
+                        
+                        zombie.position.add(direction);
+                        
+                        // Make zombie face player
+                        zombie.lookAt(playerPos);
+                        
+                        zombie.userData.lastMove = now;
+                        
+                        // Check collision with player
+                        const distance = zombiePos.distanceTo(playerPos);
+                        if (distance < 2) {
+                            this.player.health -= 1;
+                            this.updateUI();
+                            
+                            if (this.player.health <= 0) {
+                                this.gameOver();
+                            }
+                        }
+                    }
+                });
+            }
+            
+            gameOver() {
+                this.gameState = 'gameOver';
+                alert(`Game Over! Final Score: ${this.player.score}`);
+                this.resetGame();
+            }
+            
+            resetGame() {
+                this.player = {
+                    health: 100,
+                    ammo: 30,
+                    score: 0,
+                    position: new THREE.Vector3(0, 1, 0)
+                };
+                
+                // Reset camera position
+                this.controls.getObject().position.copy(this.player.position);
+                
+                // Respawn zombies
+                this.zombies.forEach(zombie => this.scene.remove(zombie));
+                this.zombies = [];
+                this.createZombies();
+                
+                this.updateUI();
+                this.gameState = 'playing';
+            }
+            
+            animate() {
+                if (this.gameState !== 'playing') return;
+                
+                requestAnimationFrame(() => this.animate());
+                
+                this.updatePlayer();
+                this.updateZombies();
+                
+                this.renderer.render(this.scene, this.camera);
+            }
+            
+            saveGameState() {
+                const gameData = {
+                    player: this.player,
+                    zombies: this.zombies.map(z => ({
+                        position: z.position,
+                        userData: z.userData
+                    })),
+                    timestamp: Date.now()
+                };
+                
+                localStorage.setItem('zombieGameSave', JSON.stringify(gameData));
+                alert('Game saved!');
+            }
+            
+            loadGameState() {
+                const savedData = localStorage.getItem('zombieGameSave');
+                if (!savedData) {
+                    alert('No saved game found!');
+                    return false;
+                }
+                
+                try {
+                    const gameData = JSON.parse(savedData);
+                    this.player = gameData.player;
+                    
+                    // Clear existing zombies
+                    this.zombies.forEach(zombie => this.scene.remove(zombie));
+                    this.zombies = [];
+                    
+                    // Restore zombies
+                    gameData.zombies.forEach(zombieData => {
+                        const zombie = this.createZombie();
+                        zombie.position.copy(zombieData.position);
+                        zombie.userData = zombieData.userData;
+                        this.scene.add(zombie);
+                        this.zombies.push(zombie);
+                    });
+                    
+                    this.controls.getObject().position.copy(this.player.position);
+                    this.updateUI();
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Failed to load game:', error);
+                    alert('Failed to load saved game!');
+                    return false;
+                }
+            }
+            
+            async exportGameData() {
+                const JSZip = (await import('jszip')).default;
+                const zip = new JSZip();
+                
+                // Add game save data
+                const saveData = localStorage.getItem('zombieGameSave');
+                if (saveData) {
+                    zip.file('gamesave.json', saveData);
+                }
+                
+                // Add assets
+                const assetData = localStorage.getItem('zombieGameAssets');
+                if (assetData) {
+                    zip.file('assets.json', assetData);
+                }
+                
+                // Generate and download zip
+                const content = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'zombie_apocalypse_backup.zip';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+            
+            async importGameData(file) {
+                const JSZip = (await import('jszip')).default;
+                const zip = new JSZip();
+                
+                try {
+                    const zipContent = await zip.loadAsync(file);
+                    
+                    // Restore save data
+                    const saveFile = zipContent.file('gamesave.json');
+                    if (saveFile) {
+                        const saveData = await saveFile.async('string');
+                        localStorage.setItem('zombieGameSave', saveData);
+                    }
+                    
+                    // Restore assets
+                    const assetFile = zipContent.file('assets.json');
+                    if (assetFile) {
+                        const assetData = await assetFile.async('string');
+                        localStorage.setItem('zombieGameAssets', assetData);
+                        
+                        // Reload assets
+                        const parsedAssets = JSON.parse(assetData);
+                        this.assets.clear();
+                        for (const [key, url] of Object.entries(parsedAssets)) {
+                            this.assets.set(key, url);
+                        }
+                    }
+                    
+                    alert('Backup restored successfully!');
+                } catch (error) {
+                    console.error('Failed to import backup:', error);
+                    alert('Failed to restore backup!');
+                }
+            }
+        }
+        
+        // Global game instance
+        window.game = new ZombieApocalypseGame();
+        
+        // Global functions
+        window.startGame = async function() {
+            await window.game.initGame();
+        };
+        
+        window.loadGame = function() {
+            if (window.game.loadGameState()) {
+                window.game.initGame();
+            }
+        };
+        
+        window.saveGame = function() {
+            window.game.saveGameState();
+        };
+        
+        window.showInventory = function() {
+            alert('Inventory system coming soon!');
+        };
+        
+        window.showMap = function() {
+            alert('Map system coming soon!');
+        };
+        
+        window.downloadBackup = async function() {
+            await window.game.exportGameData();
+        };
+        
+        window.uploadBackup = function() {
+            document.getElementById('fileInput').click();
+        };
+        
+        window.handleFileUpload = async function(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith('.zip')) {
+                await window.game.importGameData(file);
+            } else {
+                alert('Please select a valid .zip backup file!');
+            }
+        };
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.game.camera && window.game.renderer) {
+                window.game.camera.aspect = window.innerWidth / window.innerHeight;
+                window.game.camera.updateProjectionMatrix();
+                window.game.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
+
